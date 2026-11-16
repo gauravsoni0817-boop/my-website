@@ -310,6 +310,7 @@ header.bar.solid{background:rgba(9,14,28,.85);backdrop-filter:blur(14px);-webkit
       <div class="fld"><label for="s">What do you need?</label>
         <select id="s"><option>Business website</option><option>Web app or dashboard</option><option>Workflow automation</option><option>Backend and database</option><option>Not sure yet</option></select></div>
       <div class="fld"><label for="m">Project details</label><textarea id="m"></textarea></div>
+      <div aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden"><label for="hp">Leave this empty</label><input id="hp" name="website" tabindex="-1" autocomplete="off"></div>
       <button class="btn" id="send" type="button">Send enquiry</button>
       <p class="note" id="note" role="status"></p>
     </div>
@@ -329,15 +330,33 @@ header.bar.solid{background:rgba(9,14,28,.85);backdrop-filter:blur(14px);-webkit
 </footer>
 
 <script>
-document.getElementById("send").onclick=function(){
-  var n=document.getElementById("n").value.trim(),e=document.getElementById("e").value.trim(),
-      s=document.getElementById("s").value,m=document.getElementById("m").value.trim(),
-      note=document.getElementById("note");
-  if(!n||!/^\S+@\S+\.\S+$/.test(e)){note.textContent="Add your name and a valid email so I can reply.";return}
+(function(){
+var API="https://ughemphlzjhlttjldmwe.supabase.co/rest/v1/enquiries",
+    KEY="sb_publishable_dQJKddsroGkmV-xjFCEexw_MWMBkPbe", // public key: safe in the browser, row-level security limits it to inserting
+    btn=document.getElementById("send"),note=document.getElementById("note"),busy=false;
+function fallback(n,e,s,m){
   var body="Name: "+n+"\nEmail: "+e+"\nService: "+s+"\n\n"+m;
-  try{location.href="mailto:hello@gaurav.io?subject="+encodeURIComponent("Enquiry: "+s)+"&body="+encodeURIComponent(body);
-  note.textContent="Your email app should open with the enquiry ready to send."}catch(x){note.textContent="Could not open your email app. Write to hello@gaurav.io instead."}
+  note.textContent="We couldn’t send that just now. Your email app should open so you can send it directly.";
+  try{location.href="mailto:hello@gaurav.io?subject="+encodeURIComponent("Enquiry: "+s)+"&body="+encodeURIComponent(body)}catch(x){note.textContent="Something went wrong. Please write to hello@gaurav.io instead."}
+}
+btn.onclick=function(){
+  if(busy)return;
+  var n=document.getElementById("n").value.trim(),e=document.getElementById("e").value.trim(),
+      s=document.getElementById("s").value,m=document.getElementById("m").value.trim();
+  if(!n||!/^\S+@\S+\.\S+$/.test(e)){note.textContent="Add your name and a valid email so I can reply.";return}
+  if(document.getElementById("hp").value){note.textContent="Thanks! Your enquiry has been sent. I’ll reply within one working day.";return} // bot caught, pretend success
+  busy=true;btn.disabled=true;btn.style.opacity=".6";note.textContent="Sending…";
+  fetch(API,{method:"POST",headers:{"Content-Type":"application/json","apikey":KEY,"Authorization":"Bearer "+KEY,"Prefer":"return=minimal"},
+    body:JSON.stringify({name:n.slice(0,120),email:e.slice(0,254),service:s,message:m.slice(0,4000)||null})})
+  .then(function(r){
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    note.textContent="Thanks! Your enquiry has been sent. I’ll reply within one working day.";
+    ["n","e","m"].forEach(function(id){document.getElementById(id).value=""});
+  })
+  .catch(function(){fallback(n,e,s,m)})
+  .then(function(){busy=false;btn.disabled=false;btn.style.opacity=""});
 };
+})();
 </script>
 
 <script>
